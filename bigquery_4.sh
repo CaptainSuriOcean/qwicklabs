@@ -1,33 +1,34 @@
 #!/bin/bash
 
 echo ""
-echo "Welcome to Google Cloud BigQuery & Cloud Spanner Integration!"
+echo "🚀 Starting BigQuery Task..."
 echo ""
 
-# Prompt user for REGION
-read -p "Enter REGION: " REGION
+# Set variables
+PROJECT_ID=$(gcloud config get-value project)
+DATASET_NAME="products"
+TABLE_NAME="products_information"
+BUCKET_NAME="qwiklabs-gcp-03-873ca497ab9d-bucket"
+CSV_FILE="your_file.csv"  # Replace with actual CSV filename
 
-# Get the current GCP Project ID
-export PROJECT_ID=$(gcloud projects list --format="value(PROJECT_ID)")
+# ✅ Upload CSV to BigQuery Table
+echo "📂 Uploading CSV data from $BUCKET_NAME to BigQuery table..."
+bq load --source_format=CSV --autodetect "$DATASET_NAME.$TABLE_NAME" "gs://$BUCKET_NAME/$CSV_FILE"
 
-# Create a BigQuery connection to Cloud Spanner
-bq mk --connection \
-    --connection_type='CLOUD_SPANNER' \
-    --properties='{"database":"projects/'$PROJECT_ID'/instances/ecommerce-instance/databases/ecommerce"}' \
-    --location=$REGION \
-    my_connection_id
-
-# Run an External Query to fetch data from Cloud Spanner
+# ✅ Create Search Index on All Columns
+echo "🔍 Creating Search Index on $TABLE_NAME..."
 bq query --use_legacy_sql=false "
-SELECT * FROM EXTERNAL_QUERY('$PROJECT_ID.$REGION.my_connection_id', 'SELECT * FROM orders;');
+CREATE OR REPLACE SEARCH INDEX product_search_index
+ON $DATASET_NAME.$TABLE_NAME (SKU, name, orderedQuantity, stockLevel, restockingLeadTime);
 "
 
-# Create a BigQuery View from Cloud Spanner data
+# ✅ Run Query to Search for "22 oz Water Bottle"
+echo "🔎 Searching for '22 oz Water Bottle'..."
 bq query --use_legacy_sql=false "
-CREATE OR REPLACE VIEW ecommerce.order_history AS 
-SELECT * FROM EXTERNAL_QUERY('$PROJECT_ID.$REGION.my_connection_id', 'SELECT * FROM orders;');
+SELECT * FROM $DATASET_NAME.$TABLE_NAME 
+WHERE SEARCH(STRUCT(SKU, name, orderedQuantity, stockLevel, restockingLeadTime), '22 oz Water Bottle');
 "
 
 echo ""
-echo "✅ Integration Complete! You can now query 'ecommerce.order_history' in BigQuery."
+echo "✅ Task Completed Successfully!"
 echo ""
