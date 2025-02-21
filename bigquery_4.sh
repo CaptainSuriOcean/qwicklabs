@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo ""
-echo "🚀 Starting BigQuery Task..."
+echo "🚀 Starting BigQuery CSV Upload and Search Task..."
 echo ""
 
 # Set variables
@@ -21,21 +21,21 @@ else
   echo "✅ Found CSV file: $CSV_FILE"
 fi
 
-# ✅ Upload CSV data to BigQuery Table
-echo "📂 Uploading CSV data to BigQuery..."
-bq load --source_format=CSV --autodetect "$DATASET_NAME.$TABLE_NAME" "$CSV_FILE"
+# ✅ Upload CSV data to the existing BigQuery Table
+echo "📂 Uploading CSV data to BigQuery Table: $DATASET_NAME.$TABLE_NAME..."
+bq load --source_format=CSV --autodetect --replace "$DATASET_NAME.$TABLE_NAME" "$CSV_FILE"
 
-# ✅ Create a Search Index on All Columns
-echo "🔍 Creating Search Index on $TABLE_NAME..."
-bq query --use_legacy_sql=false "
-CREATE SEARCH INDEX product_search_index
-ON $DATASET_NAME.$TABLE_NAME (*);
-"
+if [ $? -eq 0 ]; then
+  echo "✅ CSV data uploaded successfully!"
+else
+  echo "❌ Error: Failed to upload CSV data."
+  exit 1
+fi
 
-# ✅ Run Query to Search for "22 oz Water Bottle"
+# ✅ Verify that data is fetched using SEARCH function
 echo "🔎 Searching for '22 oz Water Bottle' in all columns..."
 bq query --use_legacy_sql=false "
-SELECT * FROM $DATASET_NAME.$TABLE_NAME 
+SELECT * FROM \`$DATASET_NAME.$TABLE_NAME\`
 WHERE SEARCH(STRUCT(*), '22 oz Water Bottle');
 "
 
